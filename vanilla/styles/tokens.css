@@ -1,0 +1,158 @@
+/* Design tokens. Every theme is a variable swap; components never hard-code colours. */
+@font-face {
+  font-family: 'Fraunces';
+  src: url('../assets/fonts/fraunces-var.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('../assets/fonts/plex-mono-400.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('../assets/fonts/plex-mono-500.woff2') format('woff2');
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('../assets/fonts/plex-mono-600.woff2') format('woff2');
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('../assets/fonts/opendyslexic-400.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+
+:root {
+  /* Amber recorder (default) */
+  --bg: #0e0d0b;
+  --surface: #15130f;
+  --surface-2: #1d1a15;
+  --line: rgba(255, 236, 205, 0.08);
+  --line-strong: rgba(255, 236, 205, 0.16);
+  --text: #ede6da;
+  --text-dim: #a59a8c;
+  --text-faint: #6f675d;
+  --accent: #ffb000;
+  --accent-soft: rgba(255, 176, 0, 0.14);
+  --accent-ink: #0e0d0b;
+  --correct: #5fb3a8;
+  --error-bg: rgba(255, 176, 0, 0.16);
+  --focus: #ffb000;
+  --grain-opacity: 0.06;
+  --shadow: 0 1px 0 rgba(255, 236, 205, 0.04) inset;
+
+  --font-display: 'Fraunces', 'Iowan Old Style', 'Georgia', serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
+  --font-type: var(--font-mono);
+
+  --type-size: 1.5rem;
+  --type-line: 1.75;
+  --radius: 2px;
+  --gutter: clamp(16px, 3vw, 40px);
+  --rail: 300px;
+  --readout: 290px;
+
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --caret-speed: 90ms;
+  color-scheme: dark;
+}
+
+:root[data-theme='paper'] {
+  --bg: #f3eee4;
+  --surface: #faf6ef;
+  --surface-2: #ede6d9;
+  --line: rgba(40, 30, 15, 0.1);
+  --line-strong: rgba(40, 30, 15, 0.2);
+  --text: #1d1a16;
+  --text-dim: #5b5348;
+  --text-faint: #8a8174;
+  --accent: #9a5a00;
+  --accent-soft: rgba(154, 90, 0, 0.12);
+  --accent-ink: #faf6ef;
+  --correct: #1d7067;
+  --error-bg: rgba(154, 90, 0, 0.16);
+  --focus: #9a5a00;
+  --grain-opacity: 0.035;
+  color-scheme: light;
+}
+
+:root[data-theme='terminal'] {
+  --bg: #060a07;
+  --surface: #0b120d;
+  --surface-2: #101a13;
+  --line: rgba(160, 255, 190, 0.08);
+  --line-strong: rgba(160, 255, 190, 0.16);
+  --text: #d3ecd8;
+  --text-dim: #8fb39a;
+  --text-faint: #567161;
+  --accent: #46e88a;
+  --accent-soft: rgba(70, 232, 138, 0.13);
+  --accent-ink: #060a07;
+  --correct: #8fd3e8;
+  --error-bg: rgba(70, 232, 138, 0.16);
+  --focus: #46e88a;
+  --grain-opacity: 0.07;
+}
+
+/* High contrast overrides any theme. */
+:root[data-contrast='high'] {
+  --bg: #000;
+  --surface: #000;
+  --surface-2: #111;
+  --line: #5a5a5a;
+  --line-strong: #9a9a9a;
+  --text: #fff;
+  --text-dim: #e2e2e2;
+  --text-faint: #bdbdbd;
+  --accent: #ffd400;
+  --accent-soft: rgba(255, 212, 0, 0.25);
+  --accent-ink: #000;
+  --correct: #3ff0dc;
+  --error-bg: rgba(255, 212, 0, 0.35);
+  --focus: #fff;
+  --grain-opacity: 0;
+}
+
+/* System light preference picks the paper palette unless the user chose a theme explicitly. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --bg: #f3eee4;
+    --surface: #faf6ef;
+    --surface-2: #ede6d9;
+    --line: rgba(40, 30, 15, 0.1);
+    --line-strong: rgba(40, 30, 15, 0.2);
+    --text: #1d1a16;
+    --text-dim: #5b5348;
+    --text-faint: #8a8174;
+    --accent: #9a5a00;
+    --accent-soft: rgba(154, 90, 0, 0.12);
+    --accent-ink: #faf6ef;
+    --correct: #1d7067;
+    --error-bg: rgba(154, 90, 0, 0.16);
+    --focus: #9a5a00;
+    --grain-opacity: 0.035;
+    color-scheme: light;
+  }
+}
+
+:root[data-font='dyslexic'] {
+  --font-type: 'OpenDyslexic', var(--font-mono);
+  --type-line: 1.9;
+}
+:root[data-size='s'] {
+  --type-size: 1.2rem;
+}
+:root[data-size='l'] {
+  --type-size: 1.85rem;
+}
+:root[data-size='xl'] {
+  --type-size: 2.25rem;
+}

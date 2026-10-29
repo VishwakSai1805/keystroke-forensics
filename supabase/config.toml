@@ -1,0 +1,33 @@
+# Supabase CLI configuration for local development (`supabase start`) and deploys.
+project_id = "keystroke-forensics"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 17
+
+[realtime]
+enabled = true
+
+[auth]
+enabled = true
+site_url = "http://localhost:8080"
+additional_redirect_urls = ["http://localhost:5173"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+# Anonymous accounts let anyone play ranked without handing over an email address.
+enable_anonymous_sign_ins = true
+
+[functions.run-token]
+verify_jwt = true
+
+[functions.submit-run]
+verify_jwt = true
+
+[functions.ai-coach]
+verify_jwt = true

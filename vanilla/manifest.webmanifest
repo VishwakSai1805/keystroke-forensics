@@ -1,0 +1,18 @@
+{
+  "name": "Keystroke Forensics",
+  "short_name": "Keystrokes",
+  "description": "Typing-speed instrument with keystroke forensics, live analytics and a verified leaderboard.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0e0d0b",
+  "theme_color": "#0e0d0b",
+  "orientation": "any",
+  "categories": ["education", "productivity", "utilities"],
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "assets/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,11 @@
+node_modules
+dist
+react/dist
+test-results
+playwright-report
+.data
+supabase/functions/_shared/core
+supabase/functions/_shared/server
+vanilla/assets
+package-lock.json
+*.md

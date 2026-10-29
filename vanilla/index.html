@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Keystroke Forensics</title>
+    <meta name="description" content="A typing-speed instrument with keystroke forensics, live analytics, a server-verified leaderboard and a keystroke-dynamics biometrics demo." />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
+    />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="theme-color" content="#0e0d0b" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="assets/icons/icon-192.png" type="image/png" />
+    <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
+    <link rel="preload" href="assets/fonts/plex-mono-400.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="styles/tokens.css" />
+    <link rel="stylesheet" href="styles/app.css" />
+    <script src="config.js"></script>
+    <script type="module" src="src/main.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <div class="shell">
+      <header class="topbar">
+        <a class="wordmark" href="#/"> <i class="lamp" aria-hidden="true"></i><b>KEYSTROKE FORENSICS</b><span>typing flight recorder</span> </a>
+        <nav class="nav" aria-label="Primary">
+          <a href="#/">Test</a>
+          <a href="#/report">Report</a>
+          <a href="#/history">History</a>
+          <a href="#/boards">Boards</a>
+          <a href="#/duel">Duel</a>
+          <a href="#/learn">Learn</a>
+          <a href="#/biometrics">Biometrics</a>
+          <a href="#/settings">Settings</a>
+        </nav>
+        <span class="status-pill" id="net-status" data-state="offline" title="Backend connection">local</span>
+      </header>
+
+      <main id="main" tabindex="-1">
+        <!-- TEST -->
+        <section class="view" data-view="test" aria-labelledby="test-title">
+          <h1 id="test-title" class="sr-only">Typing test</h1>
+          <div class="test-grid">
+            <aside class="readout" aria-label="Live readout">
+              <div class="reveal d0">
+                <span class="label">Net WPM</span>
+                <div class="big-wpm idle" id="hud-wpm" aria-hidden="true">0</div>
+              </div>
+              <div class="pair reveal d1">
+                <div>
+                  <span class="label">Accuracy</span>
+                  <div class="metric" id="hud-acc">--<small>%</small></div>
+                </div>
+                <div>
+                  <span class="label">Raw</span>
+                  <div class="metric" id="hud-raw">--<small>wpm</small></div>
+                </div>
+              </div>
+              <div class="reveal d2">
+                <span class="label" id="hud-timer-label">Elapsed</span>
+                <div class="timer" id="hud-timer">0.0s</div>
+                <div class="progress-track" aria-hidden="true"><i id="hud-progress"></i></div>
+              </div>
+              <div class="reveal d3">
+                <span class="label">State</span>
+                <div class="timer" id="hud-state">IDLE</div>
+              </div>
+            </aside>
+
+            <div class="center">
+              <div class="modebar reveal d1" id="modebar" aria-label="Mode settings"></div>
+              <div class="typing reveal d2" id="typing">
+                <div class="typing-meta"><span id="typing-meta-left"></span><span id="typing-meta-right"></span></div>
+                <div class="tf-viewport" id="tf-viewport">
+                  <div class="tf-text" id="tf-text"></div>
+                </div>
+                <label class="sr-only" for="typing-input">Typing input. Type the text shown. Press Escape to restart.</label>
+                <textarea id="typing-input" class="typing-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-describedby="tf-text typing-help"></textarea>
+                <button class="focus-hint" id="focus-hint" type="button">Click or press any key to focus</button>
+              </div>
+              <p class="hint-line reveal d3" id="typing-help"><kbd>Esc</kbd> restart · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> new text · <kbd>Tab</kbd> to controls · timer starts on your first key</p>
+              <div class="reveal d4" id="kb-wrap"></div>
+              <div id="phishing-panel" hidden></div>
+            </div>
+
+            <aside class="rail" aria-label="Telemetry">
+              <div class="rail-block reveal d2">
+                <span class="label">WPM trace</span>
+                <svg class="spark" id="spark" viewBox="0 0 260 64" preserveAspectRatio="none" role="img" aria-label="Live WPM sparkline"></svg>
+              </div>
+              <div class="rail-block reveal d3" id="rail-metrics">
+                <div class="rail-row"><span>Consistency</span><span id="rail-consistency">--</span></div>
+                <div class="rail-row"><span>Burst (5 s)</span><span id="rail-burst">--</span></div>
+                <div class="rail-row"><span>Keystrokes</span><span id="rail-keys">0</span></div>
+                <div class="rail-row"><span>Errors</span><span id="rail-errors">0</span></div>
+                <div class="rail-row"><span>Gross WPM</span><span id="rail-gross">--</span></div>
+                <div class="rail-row"><span>Policy</span><span id="rail-policy">free</span></div>
+              </div>
+              <div class="rail-block reveal d4" id="rail-ghost" hidden>
+                <span class="label">Ghost race</span>
+                <div class="rail-row"><span>Personal best</span><span id="ghost-pb">--</span></div>
+                <div class="rail-row"><span>Lead</span><span id="ghost-delta">--</span></div>
+              </div>
+              <div class="rail-block reveal d4" id="rail-duel" hidden></div>
+              <div class="rail-block reveal d5" id="rail-identity" hidden>
+                <span class="label">Identity confidence</span>
+                <div class="meter" aria-hidden="true"><i id="identity-meter"></i></div>
+                <div class="rail-row"><span>Match</span><span id="identity-value">--</span></div>
+              </div>
+            </aside>
+          </div>
+          <div class="sr-only" aria-live="polite" id="results-live"></div>
+        </section>
+
+        <section class="view" data-view="report" aria-labelledby="report-title"></section>
+        <section class="view" data-view="history" aria-labelledby="history-title"></section>
+        <section class="view" data-view="boards" aria-labelledby="boards-title"></section>
+        <section class="view" data-view="duel" aria-labelledby="duel-title"></section>
+        <section class="view" data-view="learn" aria-labelledby="learn-title"></section>
+        <section class="view" data-view="biometrics" aria-labelledby="bio-title"></section>
+        <section class="view" data-view="settings" aria-labelledby="settings-title"></section>
+        <section class="view" data-view="replay" aria-labelledby="replay-title"></section>
+      </main>
+
+      <footer class="footer">
+        <span>All analysis runs in your browser. No trackers.</span>
+        <a href="#/settings">Privacy &amp; data</a>
+        <a href="embed.html" target="_blank" rel="noopener">Embeddable widget</a>
+        <button class="btn ghost" id="install-btn" type="button" hidden>Install app</button>
+      </footer>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>
