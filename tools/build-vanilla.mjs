@@ -20,8 +20,10 @@ cpSync('client', join(out, 'client'), { recursive: true });
 
 const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const anon = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+// Self-hosted API: KF_API_BASE=https://<service>.onrender.com, or KF_SAME_ORIGIN_API=1 when served by server/app.mjs.
+const apiBase = process.env.KF_API_BASE ? process.env.KF_API_BASE.replace(/\/$/, '') : process.env.KF_SAME_ORIGIN_API ? '' : null;
 if (/service_role/.test(anon)) throw new Error('Refusing to build: SUPABASE_ANON_KEY looks like a service-role key.');
-writeFileSync(join(out, 'config.js'), `window.KF_CONFIG = ${JSON.stringify({ supabaseUrl: url, supabaseAnonKey: anon, localApi: false })};\n`);
+writeFileSync(join(out, 'config.js'), `window.KF_CONFIG = ${JSON.stringify({ supabaseUrl: url, supabaseAnonKey: anon, apiBase, localApi: false })};\n`);
 
 function walk(dir) {
   return readdirSync(dir).flatMap((f) => {
@@ -48,4 +50,4 @@ const sw = readFileSync('vanilla/sw.js', 'utf8')
   .replace("const BUILD_ID = 'dev';", `const BUILD_ID = '${buildId}-${Date.now().toString(36)}';`)
   .replace(/const PRECACHE = \[[^\]]*\];/, `const PRECACHE = ${JSON.stringify(precache)};`);
 writeFileSync(join(out, 'sw.js'), sw);
-console.log(`vanilla build -> ${out}/ (${precache.length} files precached, backend: ${url ? 'supabase' : 'none (offline mode)'})`);
+console.log(`vanilla build -> ${out}/ (${precache.length} files precached, backend: ${url ? 'supabase' : apiBase !== null ? `node api (${apiBase || 'same origin'})` : 'none (offline mode)'})`);

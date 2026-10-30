@@ -1,0 +1,41 @@
+# Render Blueprint: one Node web service (both front-ends + the verified-leaderboard API on
+# one origin) and a private Render Postgres database.
+# Deploy: Render dashboard -> New -> Blueprint -> pick this repository -> Apply.
+services:
+  - type: web
+    name: keystroke-forensics
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm ci && npm run build
+    startCommand: node server/app.mjs
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.12.0
+      # The built front-end talks to the API on its own origin (no CORS needed).
+      - key: KF_SAME_ORIGIN_API
+        value: '1'
+      - key: DATABASE_URL
+        fromDatabase:
+          name: keystroke-db
+          property: connectionString
+      # 256-bit random secret for run-token HMACs and session tokens; never leaves the server.
+      - key: RUN_TOKEN_SECRET
+        generateValue: true
+      # Optional: enables the Claude-powered coach (aggregated stats only).
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # Optional: comma-separated origins allowed to call the API cross-origin, e.g. the Vercel
+      # front-end: https://keystroke-forensics.vercel.app,https://*.vercel.app
+      - key: ALLOWED_ORIGINS
+        sync: false
+
+databases:
+  - name: keystroke-db
+    plan: free
+    region: singapore
+    databaseName: keystroke
+    user: keystroke
+    # Empty allow-list: no public access; only services on Render's private network connect.
+    ipAllowList: []

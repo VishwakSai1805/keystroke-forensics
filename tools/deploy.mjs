@@ -1,7 +1,11 @@
-// One-command production deploy: Supabase (schema, RLS, secrets, Edge Functions) + Vercel.
-// Prerequisites (one-time, interactive):  npx supabase login   and   npx vercel login
-// Usage:  SUPABASE_PROJECT_REF=<ref> node tools/deploy.mjs [--skip-supabase] [--skip-vercel]
-// Optional env: ANTHROPIC_API_KEY (enables the Claude coach), VERCEL_SCOPE (team slug).
+// Production deploy helper. Two supported backends:
+//   Render (recommended, see render.yaml): the backend is created from the Blueprint in the
+//     Render dashboard. This script then deploys the Vercel front-end pointed at it:
+//       RENDER_API_URL=https://<service>.onrender.com node tools/deploy.mjs --skip-supabase
+//   Supabase: schema, RLS, secrets and Edge Functions, then Vercel:
+//       SUPABASE_PROJECT_REF=<ref> node tools/deploy.mjs
+// Prerequisites (one-time, interactive): npx vercel login (and npx supabase login for Supabase).
+// Optional env: ANTHROPIC_API_KEY (Claude coach, Supabase path), VERCEL_SCOPE (team slug).
 import { execSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 
@@ -17,6 +21,7 @@ const run = (cmd, opts = {}) => {
   return execSync(cmd, { stdio: opts.capture ? ['inherit', 'pipe', 'inherit'] : 'inherit', encoding: 'utf8' });
 };
 
+const renderUrl = (process.env.RENDER_API_URL || '').replace(/\/$/, '');
 if (!ref && !skipSb) {
   console.error('Set SUPABASE_PROJECT_REF (Supabase dashboard -> Project Settings -> General -> Reference ID).');
   process.exit(1);
@@ -47,7 +52,7 @@ if (!skipSb) {
 }
 
 if (!skipVc) {
-  const env = url ? ` --build-env SUPABASE_URL=${url} --build-env SUPABASE_ANON_KEY=${anon}` : '';
+  const env = url ? ` --build-env SUPABASE_URL=${url} --build-env SUPABASE_ANON_KEY=${anon}` : renderUrl ? ` --build-env KF_API_BASE=${renderUrl}` : '';
   run(`${VERCEL} deploy --prod --yes${scope}${env}`);
 }
 console.log('\nDeploy complete.');

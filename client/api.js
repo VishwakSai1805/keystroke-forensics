@@ -1,15 +1,16 @@
 /**
  * Backend client shared by both front-ends. Zero dependencies (fetch only).
  *   supabase - Supabase Auth (anonymous sessions), Edge Functions and PostgREST RPCs
- *   local    - the zero-dependency dev server in tools/serve.mjs (same API surface)
+ *   server   - the self-hosted Node API (server/http.js): the dev server, or the Render
+ *              deployment at `config.apiBase` ('' = same origin). Signed anonymous sessions.
  *   offline  - everything still works locally; ranked submission is unavailable
- * No secrets live here: only the public Supabase URL and anon key.
+ * No secrets live here: only public URLs and the Supabase anon key.
  * @module client/api
  */
 import { createRealtime } from './realtime.js';
 
 const AUTH_KEY = 'kf:auth:v1';
-const DEVICE_KEY = 'kf:device:v1';
+const SERVER_SESSION_KEY = 'kf:session:v1';
 
 const safeGet = (k) => {
   try {
@@ -35,7 +36,7 @@ class ApiError extends Error {
 }
 
 /**
- * @param {{supabaseUrl?:string, supabaseAnonKey?:string}} [config]
+ * @param {{supabaseUrl?:string, supabaseAnonKey?:string, apiBase?:string|null, localApi?:boolean}} [config]
  */
 export function createApi(config = {}) {
   const url = (config.supabaseUrl || '').replace(/\/$/, '');
@@ -48,15 +49,24 @@ export function createApi(config = {}) {
     session = null;
   }
   let realtime = null;
+  // Self-hosted API base: explicit (Render URL), '' for same origin, or null to auto-probe same origin in dev.
+  const apiBase = typeof config.apiBase === 'string' ? config.apiBase.replace(/\/$/, '') : null;
+  const base = apiBase || '';
+  const serverKey = `${SERVER_SESSION_KEY}:${base}`;
+  let serverSession = null;
+  try {
+    serverSession = JSON.parse(safeGet(serverKey) || 'null');
+  } catch {
+    serverSession = null;
+  }
 
-  const deviceId = () => {
-    let id = safeGet(DEVICE_KEY);
-    if (!id) {
-      id = crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2);
-      safeSet(DEVICE_KEY, id);
-    }
-    return id;
-  };
+  async function ensureServerSession(force = false) {
+    if (serverSession && !force && Date.now() < serverSession.expiresAt - 86_400_000) return serverSession;
+    const res = await fetch(`${base}/api/session`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+    serverSession = await json(res);
+    safeSet(serverKey, JSON.stringify(serverSession));
+    return serverSession;
+  }
 
   async function json(res) {
     const body = await res.json().catch(() => ({}));
@@ -96,8 +106,13 @@ export function createApi(config = {}) {
 
   async function call(path, { method = 'POST', body } = {}) {
     if (mode === 'offline') throw new ApiError(0, 'offline');
-    if (mode === 'local') {
-      const res = await fetch(`/api/${path}`, { method, headers: { 'content-type': 'application/json', 'x-kf-device': deviceId() }, body: body ? JSON.stringify(body) : undefined });
+    if (mode === 'server') {
+      const attempt = async (force) => {
+        const sess = await ensureServerSession(force);
+        return fetch(`${base}/api/${path}`, { method, headers: { 'content-type': 'application/json', authorization: `Bearer ${sess.token}` }, body: body ? JSON.stringify(body) : undefined });
+      };
+      let res = await attempt(false);
+      if (res.status === 401) res = await attempt(true);
       return json(res);
     }
     await ensureSession();
@@ -111,7 +126,7 @@ export function createApi(config = {}) {
     return json(res);
   }
 
-  const route = (local, remote) => (mode === 'local' ? local : remote);
+  const route = (local, remote) => (mode === 'server' ? local : remote);
 
   return {
     ApiError,
@@ -119,7 +134,7 @@ export function createApi(config = {}) {
       return mode;
     },
     get userId() {
-      return mode === 'local' ? deviceId() : session?.user_id || null;
+      return mode === 'server' ? serverSession?.userId || null : session?.user_id || null;
     },
     /** Detect the backend. */
     async init() {
@@ -130,17 +145,24 @@ export function createApi(config = {}) {
         } catch {
           mode = 'offline';
         }
-      } else if (config.localApi === false) {
+      } else if (apiBase === null && config.localApi === false) {
         mode = 'offline';
       } else {
         try {
-          const res = await fetch('/api/health', { cache: 'no-store' });
-          mode = res.ok && (await res.json()).ok ? 'local' : 'offline';
+          const res = await fetch(`${base}/api/health`, { cache: 'no-store' });
+          mode = res.ok && (await res.json()).ok ? 'server' : 'offline';
+          if (mode === 'server') await ensureServerSession();
         } catch {
           mode = 'offline';
         }
       }
-      realtime = createRealtime({ mode, supabaseUrl: url, supabaseAnonKey: anon, getToken: () => session?.access_token || null });
+      realtime = createRealtime({
+        mode,
+        supabaseUrl: url,
+        supabaseAnonKey: anon,
+        apiBase: base,
+        getToken: () => (mode === 'server' ? serverSession?.token : session?.access_token) || null,
+      });
       return mode;
     },
     get online() {
@@ -165,7 +187,9 @@ export function createApi(config = {}) {
     /** Forget the local session (used by "delete my data"). */
     signOut() {
       session = null;
+      serverSession = null;
       safeSet(AUTH_KEY, null);
+      safeSet(serverKey, null);
     },
   };
 }

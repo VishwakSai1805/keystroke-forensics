@@ -52,6 +52,7 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+      - run: KF_SAME_ORIGIN_API=1 npm run build && npm run test:e2e:prod
       - if: failure()
         uses: actions/upload-artifact@v4
         with: { name: playwright-traces, path: test-results }

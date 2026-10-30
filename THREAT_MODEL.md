@@ -37,7 +37,9 @@ Scope: the ranked leaderboard (Supabase Postgres + Edge Functions), the two fron
 | A9 | **Statistical outliers** (a human whose friend typed for them, or a tuned bot) | z-score of the new score vs the user's last 20 verified scores on the same board; z > 3 -> `wpm-spike` (needs >= 5 runs) |
 | A10 | **Probing which rule fired** | shadow-ban: quarantined runs get the *same* response as verified runs and look accepted on the owner's personal board, but never appear publicly. Hard rejections return one generic message |
 | A11 | **API abuse** | per-user and per-IP sliding-window limits (`rate_hit()`): 30 tokens/min/user, 10 submits/min/user, 30 submits/min/IP, coach 5/min/user; payload size caps (2 MB log, 20k entries) |
-| A12 | **Direct DB writes / reads** | RLS on every table; `runs`, `run_logs`, `run_tokens`, `rate_events` have no client policies and explicit `revoke`; reads go through `security definer` functions exposing safe columns only; verification fields writable only by the service role |
+| A12 | **Direct DB writes / reads** | Render: the database has an empty IP allow-list (private network only) and only the API server holds credentials; every query in `server/pgStore.js` is scoped to the session user. Supabase: RLS on every table; `runs`, `run_logs`, `run_tokens`, `rate_events` have no client policies and explicit `revoke`; reads go through `security definer` functions exposing safe columns only; verification fields writable only by the service role |
+| A12b | **Identity spoofing on the Node API** | the server mints anonymous identities: `POST /api/session` returns `<uuid>.<issuedAt>.<HMAC>`; the client cannot choose its user id; tokens expire after 1 year; session minting is rate-limited per IP (30/hour) |
+| A12c | **Cross-origin abuse of the Node API** | CORS allow-list (`ALLOWED_ORIGINS`, exact or `https://*.vercel.app` patterns, anchored); bearer tokens rather than cookies, so there is no ambient credential to ride (no CSRF) |
 | A13 | **XSS -> token theft** | strict CSP (`script-src 'self'`, no inline), all UI text escaped (`html` tagged template), custom text sanitized, chart builders escape labels |
 | A14 | **Clickjacking** | `frame-ancestors 'none'` + `X-Frame-Options: DENY` (only `embed.html` is frameable and it holds no actions) |
 | A15 | **Account farming** | anonymous accounts are cheap by design; mitigated by IP rate limits and per-user history checks, and the board is best-per-user. Residual risk below |
@@ -52,7 +54,7 @@ Scope: the ranked leaderboard (Supabase Postgres + Edge Functions), the two fron
 | **R**epudiation | "I never submitted that" | `run_tokens` and `run_logs` retain the issued token and full raw log per run; `created_at` timestamps |
 | **I**nformation disclosure | leaking flags, other users' runs or logs | runs not selectable; leaderboard function returns only handle/score/wpm/accuracy; logs service-only; coach receives aggregates only; no trackers |
 | **D**enial of service | token/submit floods, huge payloads | rate limits per user and IP, body caps, entry caps, early structural rejection before replay |
-| **E**levation of privilege | client acting as service role | service-role key only in Edge Function env; build refuses a key containing `service_role`; `security definer` functions pin `search_path` |
+| **E**levation of privilege | client acting as service role / DB owner | Render: DB credentials only in the server env, DB unreachable from the internet. Supabase: service-role key only in Edge Function env; build refuses a key containing `service_role`; `security definer` functions pin `search_path` |
 
 ## Residual risks
 
@@ -61,4 +63,5 @@ Scope: the ranked leaderboard (Supabase Postgres + Edge Functions), the two fron
 - **Shadow-ban leakage**: an attacker comparing public and personal boards from a second account can infer quarantine. That is acceptable, since it still costs them the score.
 - **Thresholds are heuristics** tuned on synthetic data; genuine very fast typists (200+ WPM) may occasionally be quarantined. Flags are retained for manual review.
 - **Mobile IME and swipe typing** cannot be verified (no key events) and is local-only by design.
-- **Free-tier quotas** can still be exhausted by a distributed attack; Supabase/Vercel platform protections apply.
+- **Free-tier quotas** can still be exhausted by a distributed attack; Render/Supabase/Vercel platform protections apply.
+- **Single-instance relay**: the Node API's duel/leaderboard SSE relay is in-process, so scaling the Render service beyond one instance needs a shared pub/sub (Postgres LISTEN/NOTIFY or Redis).

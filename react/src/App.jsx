@@ -77,7 +77,7 @@ export function App() {
           <a href="/">Vanilla app</a>
         </nav>
         <span className="status-pill" data-state={mode === 'offline' ? 'offline' : 'online'}>
-          {mode === 'supabase' ? 'online' : mode === 'local' ? 'dev server' : mode}
+          {mode === 'supabase' ? 'online' : mode === 'server' ? 'online' : mode}
         </span>
       </header>
       <main id="main">{view}</main>

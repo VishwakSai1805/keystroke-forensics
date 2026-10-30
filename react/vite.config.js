@@ -19,6 +19,7 @@ export default defineConfig({
     __KF_CONFIG__: JSON.stringify({
       supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
+      apiBase: process.env.KF_API_BASE ? process.env.KF_API_BASE.replace(/\/$/, '') : process.env.KF_SAME_ORIGIN_API ? '' : null,
       ...(process.env.NODE_ENV === 'production' || process.argv.includes('build') ? { localApi: false } : {}),
     }),
   },

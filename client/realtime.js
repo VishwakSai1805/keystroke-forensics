@@ -1,7 +1,7 @@
 /**
  * Realtime broadcast channels with three transports, chosen automatically:
  *   1. Supabase Realtime (Phoenix websocket protocol) when a Supabase project is configured
- *   2. Local dev relay (Server-Sent Events + POST) when served by tools/serve.mjs
+ *   2. Self-hosted relay (Server-Sent Events + POST) on the Node API (dev server or Render)
  *   3. BroadcastChannel (same browser, other tabs) as an offline fallback
  * Zero dependencies so the vanilla build keeps its no-runtime-deps guarantee.
  * @module client/realtime
@@ -90,10 +90,10 @@ function supabaseSocket(url, anonKey, getToken) {
   };
 }
 
-function relayChannel(name) {
+function relayChannel(name, base, getToken) {
   const handlers = new Map();
   const id = Math.random().toString(36).slice(2);
-  const es = new EventSource(`/api/relay/${encodeURIComponent(name)}?client=${id}`);
+  const es = new EventSource(`${base}/api/relay/${encodeURIComponent(name)}?client=${id}`);
   es.onmessage = (e) => {
     let msg;
     try {
@@ -111,7 +111,11 @@ function relayChannel(name) {
       handlers.get(event).add(fn);
     },
     send(event, payload) {
-      fetch(`/api/relay/${encodeURIComponent(name)}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ from: id, event, payload }) }).catch(() => {});
+      fetch(`${base}/api/relay/${encodeURIComponent(name)}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${getToken() || ''}` },
+        body: JSON.stringify({ from: id, event, payload }),
+      }).catch(() => {});
     },
     leave: () => es.close(),
   };
@@ -136,7 +140,7 @@ function localChannel(name) {
 
 /**
  * Create a realtime hub bound to the detected backend.
- * @param {{mode:'supabase'|'local'|'offline', supabaseUrl?:string, supabaseAnonKey?:string, getToken?:()=>string|null}} o
+ * @param {{mode:'supabase'|'server'|'offline', supabaseUrl?:string, supabaseAnonKey?:string, apiBase?:string, getToken?:()=>string|null}} o
  */
 export function createRealtime(o) {
   let sb = null;
@@ -147,7 +151,7 @@ export function createRealtime(o) {
         sb ||= supabaseSocket(o.supabaseUrl, o.supabaseAnonKey, o.getToken || (() => null));
         return sb.channel(name);
       }
-      if (o.mode === 'local' && typeof EventSource !== 'undefined') return relayChannel(name);
+      if (o.mode === 'server' && typeof EventSource !== 'undefined') return relayChannel(name, o.apiBase || '', o.getToken || (() => null));
       return localChannel(name);
     },
   };

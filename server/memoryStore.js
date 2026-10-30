@@ -34,6 +34,7 @@ export function createMemoryStore(o = {}) {
   const handle = (uid) => (data.profiles[uid] && data.profiles[uid].handle) || `typist-${uid.slice(0, 6)}`;
 
   return {
+    async ensureUser() {},
     async hit(key, windowMs, now) {
       const b = (data.buckets[key] || []).filter((t) => t > now - windowMs);
       b.push(now);

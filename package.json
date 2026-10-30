@@ -23,10 +23,15 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "deploy": "node tools/deploy.mjs"
+    "deploy": "node tools/deploy.mjs",
+    "start": "node server/app.mjs",
+    "test:e2e:prod": "playwright test -c playwright.prod.config.js",
+    "pg:dev": "node tools/pg-dev.mjs"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
+    "@electric-sql/pglite": "^0.5.13",
+    "@electric-sql/pglite-socket": "^0.2.16",
     "@eslint/js": "^10.0.1",
     "@fontsource-variable/fraunces": "^5.3.0",
     "@fontsource/ibm-plex-mono": "^5.3.0",
@@ -41,5 +46,8 @@
   },
   "workspaces": [
     "react"
-  ]
+  ],
+  "dependencies": {
+    "pg": "^8.23.1"
+  }
 }

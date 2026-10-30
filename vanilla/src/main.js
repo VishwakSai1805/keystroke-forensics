@@ -114,7 +114,7 @@ async function boot() {
   const mode = await api.init();
   const pill = $('#net-status');
   pill.dataset.state = mode === 'offline' ? 'offline' : 'online';
-  pill.textContent = mode === 'supabase' ? 'online' : mode === 'local' ? 'dev server' : 'offline';
+  pill.textContent = mode === 'supabase' ? 'online' : mode === 'server' ? 'online' : 'offline';
   pill.title = mode === 'offline' ? 'No backend: everything runs locally; leaderboards are unavailable.' : 'Connected: ranked runs are verified server-side.';
   await route();
 }
