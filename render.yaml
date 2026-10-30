@@ -23,8 +23,12 @@ services:
       # 256-bit random secret for run-token HMACs and session tokens; never leaves the server.
       - key: RUN_TOKEN_SECRET
         generateValue: true
-      # Optional: enables the Claude-powered coach (aggregated stats only).
+      # Optional AI coach (aggregated stats only; never raw keystrokes). Set EITHER of these.
+      # Claude: get a key at console.anthropic.com (paid).
       - key: ANTHROPIC_API_KEY
+        sync: false
+      # Gemini: get a key at aistudio.google.com/apikey (has a free tier).
+      - key: GEMINI_API_KEY
         sync: false
       # Optional: comma-separated origins allowed to call the API cross-origin, e.g. the Vercel
       # front-end: https://keystroke-forensics.vercel.app,https://*.vercel.app

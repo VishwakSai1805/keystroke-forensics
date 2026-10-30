@@ -246,13 +246,23 @@ export function createStatic(o) {
   };
 }
 
-/** Optional Claude client for the coach (only when ANTHROPIC_API_KEY is set). */
-export async function loadAnthropic() {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
-  try {
-    const { default: Anthropic } = await import('@anthropic-ai/sdk');
-    return new Anthropic();
-  } catch {
-    return null;
+/**
+ * Optional LLM providers for the coach, read from the environment.
+ * ANTHROPIC_API_KEY -> Claude (needs the @anthropic-ai/sdk dependency).
+ * GEMINI_API_KEY    -> Gemini (plain fetch, no dependency). GEMINI_MODEL overrides the model.
+ * Neither set: the coach uses its deterministic offline plan.
+ * @returns {Promise<{anthropic:Object|null, gemini:{apiKey:string, model:string|undefined}|null}>}
+ */
+export async function loadCoachProviders() {
+  let anthropic = null;
+  if (process.env.ANTHROPIC_API_KEY) {
+    try {
+      const { default: Anthropic } = await import('@anthropic-ai/sdk');
+      anthropic = new Anthropic();
+    } catch {
+      anthropic = null;
+    }
   }
+  const gemini = process.env.GEMINI_API_KEY ? { apiKey: process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL || undefined } : null;
+  return { anthropic, gemini };
 }

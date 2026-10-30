@@ -164,7 +164,7 @@ export async function mount(el, app) {
         }
       } else plan = offlinePlan(payload);
       out.innerHTML = html`<p class="diagnosis">${plan.summary}</p>
-        <p class="hint-line">Source: ${plan.source === 'claude' ? 'Claude (aggregated stats only)' : 'offline rules'}</p>
+        <p class="hint-line">Source: ${plan.source === 'offline' ? 'offline rules (no data left this server)' : `${plan.source} (aggregated stats only)`}</p>
         <div class="cards">
           ${raw(
             plan.drills

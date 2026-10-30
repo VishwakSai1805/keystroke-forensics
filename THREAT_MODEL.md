@@ -43,7 +43,7 @@ Scope: the ranked leaderboard (Supabase Postgres + Edge Functions), the two fron
 | A13 | **XSS -> token theft** | strict CSP (`script-src 'self'`, no inline), all UI text escaped (`html` tagged template), custom text sanitized, chart builders escape labels |
 | A14 | **Clickjacking** | `frame-ancestors 'none'` + `X-Frame-Options: DENY` (only `embed.html` is frameable and it holds no actions) |
 | A15 | **Account farming** | anonymous accounts are cheap by design; mitigated by IP rate limits and per-user history checks, and the board is best-per-user. Residual risk below |
-| A16 | **Prompt injection via the AI coach** | the coach accepts only a strict numeric/short-token schema (`validateCoachPayload`); free text is rejected; the reply is schema-checked (`sanitizePlan`) and rendered escaped |
+| A16 | **Prompt injection via the AI coach** | the coach accepts only a strict numeric/short-token schema (`validateCoachPayload`); free text is rejected; the reply is schema-checked (`sanitizePlan`) and rendered escaped. Applies identically to both providers (Claude, Gemini); an untrusted or failing provider can only cause a fallback to the offline plan, never an error or an unescaped render |
 
 ## STRIDE
 

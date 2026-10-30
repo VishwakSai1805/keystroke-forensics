@@ -115,4 +115,73 @@ describe('coach service', () => {
     const plan = await createCoachService({ anthropic: { beta: { messages: { create } } } }).plan(stats);
     expect(plan.source).toBe('offline');
   });
+
+  // --- Gemini provider ---
+  const GOOD_PLAN = { summary: 'Focus on th', drills: [{ title: 'th drill', minutes: 5, text: 'the that this' }], tips: ['steady beat'] };
+  const geminiOk = (plan = GOOD_PLAN) =>
+    vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ status: 'completed', steps: [{ type: 'model_output', content: [{ type: 'text', text: JSON.stringify(plan) }] }] }) }));
+
+  it('uses Gemini when only a Gemini key is set, and sends only aggregated stats', async () => {
+    const fetchImpl = geminiOk();
+    const plan = await createCoachService({ gemini: { apiKey: 'g-key' }, fetch: fetchImpl }).plan(stats);
+    expect(plan.source).toBe('gemini');
+    expect(plan.drills[0].title).toBe('th drill');
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe('https://generativelanguage.googleapis.com/v1beta/interactions');
+    expect(init.headers['x-goog-api-key']).toBe('g-key');
+    const body = JSON.parse(init.body);
+    expect(body.model).toBe('gemini-3.5-flash-lite');
+    expect(body.response_format.mime_type).toBe('application/json');
+    expect(body.input).toContain('"slowBigrams"');
+    // Privacy: no raw keystrokes, timings or identity may appear in the request.
+    for (const leak of ['tDown', 'tUp', 'isTrusted', 'entries', 'userId']) expect(init.body).not.toContain(leak);
+  });
+
+  it('honours a custom Gemini model', async () => {
+    const fetchImpl = geminiOk();
+    await createCoachService({ gemini: { apiKey: 'g', model: 'gemini-3.8-flash' }, fetch: fetchImpl }).plan(stats);
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body).model).toBe('gemini-3.8-flash');
+  });
+
+  it('reads text from a step without a content array', async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ steps: [{ type: 'model_output', text: JSON.stringify(GOOD_PLAN) }] }) }));
+    expect((await createCoachService({ gemini: { apiKey: 'g' }, fetch: fetchImpl }).plan(stats)).source).toBe('gemini');
+  });
+
+  it('prefers Claude and falls through to Gemini when Claude fails', async () => {
+    const create = vi.fn(async () => {
+      throw new Error('401 invalid x-api-key');
+    });
+    const fetchImpl = geminiOk();
+    const svc = createCoachService({ anthropic: { beta: { messages: { create } } }, gemini: { apiKey: 'g' }, fetch: fetchImpl });
+    expect(svc.providers).toEqual(['claude', 'gemini']);
+    const plan = await svc.plan(stats);
+    expect(plan.source).toBe('gemini');
+    expect(create).toHaveBeenCalledOnce();
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
+  it('falls back to the offline plan on every Gemini failure mode', async () => {
+    const cases = {
+      'http error': async () => ({ ok: false, status: 429, json: async () => ({}) }),
+      'network error': async () => {
+        throw new Error('ECONNRESET');
+      },
+      incomplete: async () => ({ ok: true, status: 200, json: async () => ({ status: 'incomplete', steps: [] }) }),
+      'no text': async () => ({ ok: true, status: 200, json: async () => ({ status: 'completed', steps: [] }) }),
+      'bad json': async () => ({ ok: true, status: 200, json: async () => ({ steps: [{ type: 'model_output', text: 'not json' }] }) }),
+      'wrong shape': async () => ({ ok: true, status: 200, json: async () => ({ steps: [{ type: 'model_output', text: '{"nope":1}' }] }) }),
+    };
+    for (const [name, fetchImpl] of Object.entries(cases)) {
+      const plan = await createCoachService({ gemini: { apiKey: 'g' }, fetch: fetchImpl }).plan(stats);
+      expect(plan.source, name).toBe('offline');
+      expect(plan.drills.length, name).toBeGreaterThan(0);
+    }
+  });
+
+  it('reports configured providers and ignores an empty key', async () => {
+    expect(createCoachService({}).providers).toEqual([]);
+    expect(createCoachService({ gemini: { apiKey: '' } }).providers).toEqual([]);
+    expect(createCoachService({ gemini: { apiKey: 'g' } }).providers).toEqual(['gemini']);
+  });
 });
