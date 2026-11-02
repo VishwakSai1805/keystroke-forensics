@@ -6,6 +6,15 @@ import { LESSONS } from '../../../core/lessons.js';
 import { sanitizeText, MAX_CUSTOM_LENGTH } from '../../../core/sanitize.js';
 import { html, raw, esc, toast } from '../dom.js';
 
+/** The few modes shown as buttons; everything else lives in the More modes list. */
+const PRIMARY = [
+  ['sentence', 'Sentence'],
+  ['words', 'Words'],
+  ['timed', 'Time'],
+  ['quote', 'Quote'],
+  ['code', 'Code'],
+];
+
 const CATEGORY_LABELS = { core: 'Core', skill: 'Skill', competitive: 'Competitive', security: 'Security', learning: 'Learning' };
 
 const OPTION_SETS = {
@@ -36,14 +45,16 @@ export function mountModebar(el, app) {
     const modeId = s.modeId;
     const mode = getMode(modeId);
     const opts = resolveOptions(modeId, (s.modeOptions || {})[modeId] || {});
+    const isPrimary = PRIMARY.some(([id]) => id === modeId);
     const groups = Object.entries(CATEGORY_LABELS)
       .map(([cat, label]) => {
         const modes = listModes(cat).filter((m) => m.id !== 'duel');
         return modes.length
-          ? `<optgroup label="${esc(label)}">${modes.map((m) => `<option value="${esc(m.id)}"${m.id === modeId ? ' selected' : ''}>${esc(m.label)}</option>`).join('')}</optgroup>`
+          ? `<optgroup label="${esc(label)}">${modes.map((m) => `<option value="${esc(m.id)}"${m.id === modeId && !isPrimary ? ' selected' : ''}>${esc(m.label)}</option>`).join('')}</optgroup>`
           : '';
       })
       .join('');
+    const primary = PRIMARY.map(([id, label]) => html`<button class="chip mode-chip" type="button" data-mode="${id}" aria-pressed="${id === modeId}">${label}</button>`).join('');
     const chips = (OPTION_SETS[modeId] || [])
       .map((set) => {
         if (set.toggle) return html`<button class="chip" type="button" data-toggle="${set.key}" aria-pressed="${Boolean(opts[set.key])}">${set.label()}</button>`;
@@ -51,21 +62,30 @@ export function mountModebar(el, app) {
           .map((v) => html`<button class="chip" type="button" data-opt="${set.key}" data-val="${String(v)}" aria-pressed="${String(opts[set.key]) === String(v)}">${set.label(v)}</button>`)
           .join('');
       })
-      .join('<span aria-hidden="true">|</span>');
+      .join('<span class="sep" aria-hidden="true"></span>');
     const custom = modeId === 'custom' ? html`<button class="chip" type="button" data-custom aria-expanded="false">edit text</button>` : '';
     const ghostable = mode.scoreRules.ranked && modeId !== 'daily';
-    el.innerHTML = html` <label class="sr-only" for="mode-select">Mode</label>
-      <select id="mode-select" aria-label="Mode">
-        ${raw(groups)}
-      </select>
-      <div class="chips" role="group" aria-label="Mode options">${raw(chips)}${raw(custom)}</div>
-      <div class="chips" role="group" aria-label="Run options">
-        <button class="chip" type="button" data-policy aria-pressed="${s.policy === 'strict'}" title="Errors must be fixed before advancing">strict backspace</button>
-        ${raw(ghostable ? html`<button class="chip" type="button" data-ghost aria-pressed="${Boolean(s.ghost)}" title="Race a replay of your personal best">ghost</button>` : '')}
-        ${raw(mode.scoreRules.ranked ? html`<button class="chip" type="button" data-ranked aria-pressed="${Boolean(s.ranked)}" title="Request a server-signed run for the leaderboard">ranked</button>` : '')}
-        <button class="chip" type="button" data-duel>duel</button>
+    el.innerHTML = html`<div class="mode-row">
+        <div class="chips" role="group" aria-label="Mode">${raw(primary)}</div>
+        <label class="sr-only" for="mode-select">All modes</label>
+        <select id="mode-select" class="more-modes${isPrimary ? '' : ' active'}" aria-label="All modes">
+          <option value="" disabled${isPrimary ? ' selected' : ''}>More modes</option>
+          ${raw(groups)}
+        </select>
+        <details class="run-opts">
+          <summary title="Run options">Options</summary>
+          <div class="run-opts-menu" role="group" aria-label="Run options">
+            <button class="chip" type="button" data-policy aria-pressed="${s.policy === 'strict'}" title="Errors must be fixed before advancing">Strict backspace</button>
+            ${raw(ghostable ? html`<button class="chip" type="button" data-ghost aria-pressed="${Boolean(s.ghost)}" title="Race a replay of your personal best">Race my best</button>` : '')}
+            ${raw(mode.scoreRules.ranked ? html`<button class="chip" type="button" data-ranked aria-pressed="${Boolean(s.ranked)}" title="Submit to the leaderboard">Leaderboard runs</button>` : '')}
+            <button class="chip" type="button" data-telemetry aria-pressed="${Boolean(s.showTelemetry)}">Live stats</button>
+            <button class="chip" type="button" data-keyboard aria-pressed="${Boolean(s.showKeyboard)}">Keyboard heatmap</button>
+            <button class="chip" type="button" data-duel>Duel a friend</button>
+          </div>
+        </details>
+        <button class="btn ghost" type="button" data-new title="New text (Ctrl+Enter)">New text</button>
       </div>
-      <button class="btn ghost" type="button" data-new title="Ctrl+Enter">new text</button>
+      ${raw(chips || custom ? html`<div class="chips sub-chips" role="group" aria-label="Mode options">${raw(chips)}${raw(custom)}</div>` : '')}
       <div id="custom-panel" hidden></div>`;
   }
 
@@ -77,7 +97,7 @@ export function mountModebar(el, app) {
   }
 
   el.addEventListener('change', (e) => {
-    if (e.target.id === 'mode-select') {
+    if (e.target.id === 'mode-select' && e.target.value) {
       store.set({ modeId: e.target.value });
       render();
       app.controller.start();
@@ -88,7 +108,19 @@ export function mountModebar(el, app) {
     const b = e.target.closest('button');
     if (!b) return;
     const s = store.get();
-    if (b.dataset.opt) {
+    if (b.dataset.mode) {
+      store.set({ modeId: b.dataset.mode });
+    } else if ('telemetry' in b.dataset) {
+      store.set({ showTelemetry: !s.showTelemetry });
+      render();
+      el.querySelector('.run-opts').open = true;
+      return;
+    } else if ('keyboard' in b.dataset) {
+      store.set({ showKeyboard: !s.showKeyboard });
+      render();
+      el.querySelector('.run-opts').open = true;
+      return;
+    } else if (b.dataset.opt) {
       const raw0 = b.dataset.val;
       setOption(b.dataset.opt, /^\d+$/.test(raw0) ? Number(raw0) : raw0);
     } else if (b.dataset.toggle) {

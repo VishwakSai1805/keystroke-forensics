@@ -679,7 +679,7 @@ kbd {
 }
 .chart text {
   fill: var(--text-dim);
-  font: 10px var(--font-mono);
+  font: 11px var(--font-mono);
 }
 .chart .grid {
   stroke: var(--line);
@@ -1057,4 +1057,194 @@ textarea {
 }
 code {
   word-break: break-all;
+}
+
+/* ---------- v2: calmer first screen ---------- */
+.test-grid.no-rail {
+  grid-template-columns: var(--readout) minmax(0, 1fr);
+}
+.test-grid.no-rail .center {
+  padding-right: 0;
+}
+.mode-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.mode-chip {
+  font-size: 0.85rem;
+  padding: 6px 12px;
+}
+.sub-chips {
+  margin-top: 4px;
+}
+.chips .sep {
+  width: 1px;
+  align-self: stretch;
+  background: var(--line-strong);
+  margin: 0 6px;
+}
+select.more-modes {
+  color: var(--text-dim);
+  border-color: var(--line);
+  cursor: pointer;
+}
+select.more-modes.active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+/* Dropdown menus built on <details> (no JS needed to open them). */
+details.more,
+details.run-opts {
+  position: relative;
+}
+details.more > summary,
+details.run-opts > summary {
+  list-style: none;
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  border-bottom: 1px solid transparent;
+  white-space: nowrap;
+  user-select: none;
+}
+details.run-opts > summary {
+  text-transform: none;
+  letter-spacing: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+details.more > summary::after,
+details.run-opts > summary::after {
+  content: ' \25BE';
+  font-size: 0.75em;
+}
+details.more > summary:hover,
+details.run-opts > summary:hover,
+details[open] > summary {
+  color: var(--text);
+}
+details.more.has-current > summary {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.more-menu,
+.run-opts-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  min-width: 180px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  padding: 6px;
+  display: grid;
+  gap: 2px;
+}
+.more-menu {
+  right: 0;
+}
+.run-opts-menu {
+  left: 0;
+  min-width: 210px;
+}
+.more-menu a {
+  display: block;
+  padding: 8px 10px;
+  border-bottom: 0;
+}
+.more-menu a[aria-current='page'] {
+  color: var(--accent);
+}
+.run-opts-menu .chip {
+  text-align: left;
+  width: 100%;
+}
+.run-opts-menu .chip[aria-pressed='true']::before {
+  content: '\2713  ';
+}
+/* the nav no longer needs to scroll; let the More menu overflow it */
+.nav {
+  overflow: visible;
+  align-items: center;
+}
+
+/* ---------- v2: report fixes ---------- */
+.card {
+  overflow: hidden;
+}
+.kb {
+  width: 100%;
+}
+.key {
+  min-width: 0;
+}
+.chart-fit {
+  width: 100%;
+}
+.chart-fit .chart {
+  width: 100%;
+  height: auto;
+}
+@media (max-width: 1023px) {
+  .test-grid.no-rail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+details.more-stats {
+  margin: -16px 0 24px;
+}
+details.more-stats > summary {
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  padding: 6px 0;
+}
+details.more-stats[open] > summary {
+  margin-bottom: 8px;
+}
+.rail[hidden],
+.rail-block[hidden] {
+  display: none;
+}
+/* Dropdowns must sit above the typing area (the load-in animation gives each section its own layer). */
+.modebar {
+  position: relative;
+  z-index: 20;
+}
+.topbar {
+  position: relative;
+  z-index: 40;
+}
+/* Phones: speed, accuracy and time on one row so the text is visible without scrolling. */
+@media (max-width: 767px) {
+  .readout {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: end;
+    gap: 8px 12px;
+    padding: 14px 0;
+  }
+  .readout > :first-child,
+  .readout .pair {
+    grid-column: auto;
+  }
+  .readout .pair {
+    display: block;
+  }
+  .big-wpm {
+    font-size: 3.2rem;
+  }
+  .readout .metric {
+    font-size: 1.6rem;
+  }
+  .center {
+    padding-top: 16px;
+    gap: 16px;
+  }
 }

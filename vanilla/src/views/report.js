@@ -4,7 +4,7 @@ import { mountKeyboard } from '../../../client/keyboard.js';
 import { renderShareCard, shareCard } from '../../../client/shareCard.js';
 import { getMode } from '../../../core/modes/index.js';
 import { db, listRuns } from '../../../client/db.js';
-import { html, raw, fmt, toast, download, rollNumber } from '../dom.js';
+import { html, raw, fmt, toast, download, rollNumber, fitChart } from '../dom.js';
 
 const VERIFY_LABEL = { local: 'local only', pending: 'submitting...', submitted: 'submitted · server-verified', unqualified: 'recorded · below leaderboard bar', rejected: 'not accepted by server' };
 
@@ -40,27 +40,24 @@ export async function mount(el, app, [id]) {
   ].join('');
 
   const series = a && a.series ? a.series : [];
-  const chart = series.length
-    ? lineChart({
-        title: 'WPM over time',
-        series: [
-          { points: series.map((p) => ({ x: p.t, y: p.wpm })), cls: '' },
-          { points: series.map((p) => ({ x: p.t, y: p.cum })), cls: 'alt' },
-        ],
-        ticks: (a.errors || []).map((e) => e.t),
-        bands: (a.flow && a.flow.segments) || [],
-        yLabel: 'wpm',
-      })
-    : '<p class="empty">Not enough data for a time series.</p>';
+  const chart = (width) =>
+    lineChart({
+      width,
+      height: Math.max(180, Math.min(280, Math.round(width * 0.32))),
+      title: 'WPM over time',
+      series: [
+        { points: series.map((p) => ({ x: p.t, y: p.wpm })), cls: '' },
+        { points: series.map((p) => ({ x: p.t, y: p.cum })), cls: 'alt' },
+      ],
+      ticks: (a.errors || []).map((e) => e.t),
+      bands: (a.flow && a.flow.segments) || [],
+      yLabel: 'wpm',
+    });
 
-  const slow =
-    a && a.slowest && a.slowest.length
-      ? barChart({ title: 'Slowest bigrams', items: a.slowest.map((b) => ({ label: `'${b.bigram}'`, value: b.meanLatency, note: `(+${b.slowdownPct}%)` })), unit: 'ms' })
-      : '<p class="empty">No repeated letter pairs yet.</p>';
+  const hasSlow = Boolean(a && a.slowest && a.slowest.length);
+  const slow = (width) => barChart({ width, title: 'Slowest bigrams', items: a.slowest.map((b) => ({ label: `'${b.bigram}'`, value: b.meanLatency, note: `(+${b.slowdownPct}%)` })), unit: 'ms' });
   const fingers = a && a.fingers ? a.fingers.filter((f) => f.count > 0) : [];
-  const fingerChart = fingers.length
-    ? barChart({ title: 'Finger load', items: fingers.map((f) => ({ label: f.finger, value: f.load, note: f.errors ? `${f.errorRate}% err` : '' })), unit: '%' })
-    : '<p class="empty">No finger data.</p>';
+  const fingerChart = (width) => barChart({ width, title: 'Finger load', items: fingers.map((f) => ({ label: f.finger, value: f.load, note: f.errors ? `${f.errorRate}% err` : '' })), unit: '%' });
   const errors = (a && a.errors) || [];
   const fat = a && a.fatigue;
 
@@ -107,28 +104,12 @@ export async function mount(el, app, [id]) {
         <div class="metric accent" id="roll-net">${fmt.n(r.netWpm)}</div>
       </div>
       <div>
-        <span class="label">Gross WPM</span>
-        <div class="metric">${fmt.n(r.grossWpm)}</div>
-      </div>
-      <div>
-        <span class="label">Final accuracy</span>
+        <span class="label">Accuracy</span>
         <div class="metric">${fmt.n(r.finalAccuracy, 1)}<small>%</small></div>
-      </div>
-      <div>
-        <span class="label">Raw accuracy</span>
-        <div class="metric">${fmt.n(r.rawAccuracy, 1)}<small>%</small></div>
       </div>
       <div>
         <span class="label">Consistency</span>
         <div class="metric">${fmt.n(r.consistency)}<small>%</small></div>
-      </div>
-      <div>
-        <span class="label">Burst 5 s</span>
-        <div class="metric">${fmt.n(r.burstWpm)}</div>
-      </div>
-      <div>
-        <span class="label">Score</span>
-        <div class="metric">${fmt.n(r.score, 1)}</div>
       </div>
       <div>
         <span class="label">Time</span>
@@ -136,12 +117,33 @@ export async function mount(el, app, [id]) {
       </div>
       ${raw(extraCells)}
     </div>
+    <details class="more-stats">
+      <summary>All metrics</summary>
+      <div class="stat-strip">
+        <div>
+          <span class="label">Gross WPM</span>
+          <div class="metric">${fmt.n(r.grossWpm)}</div>
+        </div>
+        <div>
+          <span class="label">Raw accuracy</span>
+          <div class="metric">${fmt.n(r.rawAccuracy, 1)}<small>%</small></div>
+        </div>
+        <div>
+          <span class="label">Burst 5 s</span>
+          <div class="metric">${fmt.n(r.burstWpm)}</div>
+        </div>
+        <div>
+          <span class="label">Score</span>
+          <div class="metric">${fmt.n(r.score, 1)}</div>
+        </div>
+      </div>
+    </details>
     ${raw(a ? html`<p class="diagnosis">${a.diagnosis}</p>` : '')}
     <div class="cards">
       <div class="card wide">
         <h3>WPM over time</h3>
         <p class="hint-line">Solid: rolling 2 s WPM · dashed: cumulative · ticks: errors · shaded: flow state${a && a.flow ? ` (${a.flow.flowPct}% of the run)` : ''}</p>
-        ${raw(chart)}
+        ${raw(series.length ? '<div class="chart-fit" data-chart="wpm"></div>' : '<p class="empty">Not enough data for a time series.</p>')}
       </div>
       <div class="card">
         <h3>Fatigue curve</h3>
@@ -156,11 +158,11 @@ export async function mount(el, app, [id]) {
       </div>
       <div class="card">
         <h3>Slowest bigrams</h3>
-        ${raw(slow)}
+        ${raw(hasSlow ? '<div class="chart-fit" data-chart="slow"></div>' : '<p class="empty">No repeated letter pairs yet.</p>')}
       </div>
       <div class="card">
         <h3>Finger load</h3>
-        ${raw(fingerChart)}
+        ${raw(fingers.length ? '<div class="chart-fit" data-chart="fingers"></div>' : '<p class="empty">No finger data.</p>')}
       </div>
       <div class="card">
         <h3>Keyboard heatmap</h3>
@@ -202,6 +204,11 @@ export async function mount(el, app, [id]) {
       ${raw(phishing)}
     </div>`;
 
+  const stopCharts = [
+    series.length ? fitChart(el.querySelector('[data-chart="wpm"]'), chart) : null,
+    hasSlow ? fitChart(el.querySelector('[data-chart="slow"]'), slow) : null,
+    fingers.length ? fitChart(el.querySelector('[data-chart="fingers"]'), fingerChart) : null,
+  ].filter(Boolean);
   rollNumber(el.querySelector('#roll-net'), r.netWpm, 0);
   if (a && a.heat) {
     const kb = mountKeyboard(el.querySelector('#report-kb'), app.store.get().layout);
@@ -220,5 +227,8 @@ export async function mount(el, app, [id]) {
     if (fresh && s) s.textContent = VERIFY_LABEL[fresh.verification] || fresh.verification;
     if (!fresh || fresh.verification !== 'pending') clearInterval(timer);
   }, 1000);
-  return () => clearInterval(timer);
+  return () => {
+    clearInterval(timer);
+    for (const stop of stopCharts) stop();
+  };
 }

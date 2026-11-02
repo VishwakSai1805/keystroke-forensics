@@ -14,7 +14,9 @@ export const DEFAULTS = Object.freeze({
   sound: 'silent',
   haptics: false,
   policy: 'free',
-  showKeyboard: true,
+  showKeyboard: false,
+  showTelemetry: false,
+  uiV2: true,
   coachFingers: false,
   handle: '',
   aiCoach: false,
@@ -30,7 +32,11 @@ export const DEFAULTS = Object.freeze({
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? { ...DEFAULTS, ...JSON.parse(raw) } : { ...DEFAULTS };
+    if (!raw) return { ...DEFAULTS };
+    const saved = JSON.parse(raw);
+    // v2 UI: the keyboard heatmap and live-stats rail start hidden for everyone once.
+    if (!saved.uiV2) Object.assign(saved, { showKeyboard: false, showTelemetry: false, uiV2: true });
+    return { ...DEFAULTS, ...saved };
   } catch {
     return { ...DEFAULTS };
   }

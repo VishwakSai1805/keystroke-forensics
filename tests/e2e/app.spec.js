@@ -117,3 +117,16 @@ test('duel: two browser contexts race on the same text', async ({ browser }) => 
   await a.close();
   await b.close();
 });
+
+test('a quick option click right after a mode change is not ignored', async ({ page }) => {
+  await chooseMode(page, 'sentence');
+  // Change mode and pick an option in the same instant, before the first request finishes.
+  await page.evaluate(() => {
+    const s = document.getElementById('mode-select');
+    s.value = 'words';
+    s.dispatchEvent(new Event('change', { bubbles: true }));
+    document.querySelector('[data-opt="count"][data-val="10"]').click();
+  });
+  await expect.poll(() => page.evaluate(() => document.querySelector('#tf-text > span').textContent.trim().split(/\s+/).length), { timeout: 10_000 }).toBe(10);
+  await expect(page.locator('[data-opt="count"][aria-pressed="true"]')).toHaveText('10');
+});

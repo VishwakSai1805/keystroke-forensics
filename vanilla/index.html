@@ -27,13 +27,17 @@
         <a class="wordmark" href="#/"> <i class="lamp" aria-hidden="true"></i><b>KEYSTROKE FORENSICS</b><span>typing flight recorder</span> </a>
         <nav class="nav" aria-label="Primary">
           <a href="#/">Test</a>
-          <a href="#/report">Report</a>
-          <a href="#/history">History</a>
-          <a href="#/boards">Boards</a>
-          <a href="#/duel">Duel</a>
+          <a href="#/boards">Leaderboard</a>
           <a href="#/learn">Learn</a>
-          <a href="#/biometrics">Biometrics</a>
-          <a href="#/settings">Settings</a>
+          <details class="more" id="nav-more">
+            <summary>More</summary>
+            <div class="more-menu">
+              <a href="#/history">History</a>
+              <a href="#/duel">Duel</a>
+              <a href="#/biometrics">Biometrics</a>
+              <a href="#/settings">Settings</a>
+            </div>
+          </details>
         </nav>
         <span class="status-pill" id="net-status" data-state="offline" title="Backend connection">local</span>
       </header>
@@ -53,7 +57,7 @@
                   <span class="label">Accuracy</span>
                   <div class="metric" id="hud-acc">--<small>%</small></div>
                 </div>
-                <div>
+                <div class="sr-only">
                   <span class="label">Raw</span>
                   <div class="metric" id="hud-raw">--<small>wpm</small></div>
                 </div>
@@ -63,7 +67,7 @@
                 <div class="timer" id="hud-timer">0.0s</div>
                 <div class="progress-track" aria-hidden="true"><i id="hud-progress"></i></div>
               </div>
-              <div class="reveal d3">
+              <div class="sr-only">
                 <span class="label">State</span>
                 <div class="timer" id="hud-state">IDLE</div>
               </div>
@@ -80,7 +84,7 @@
                 <textarea id="typing-input" class="typing-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-describedby="tf-text typing-help"></textarea>
                 <button class="focus-hint" id="focus-hint" type="button">Click or press any key to focus</button>
               </div>
-              <p class="hint-line reveal d3" id="typing-help"><kbd>Esc</kbd> restart · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> new text · <kbd>Tab</kbd> to controls · timer starts on your first key</p>
+              <p class="hint-line reveal d3" id="typing-help">Just start typing. <kbd>Esc</kbd> to restart.</p>
               <div class="reveal d4" id="kb-wrap"></div>
               <div id="phishing-panel" hidden></div>
             </div>

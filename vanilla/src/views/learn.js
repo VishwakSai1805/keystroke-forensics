@@ -112,9 +112,7 @@ export async function mount(el, app) {
           <strong>What is sent:</strong> only the aggregated statistics below (averages, slowest letter pairs, weakest keys). Never raw keystrokes, text, timings or identity. Off by default; without
           consent, or offline, a built-in plan is generated locally.
         </p>
-        <label class="toggle"
-          ><input type="checkbox" id="ai-optin" ${s.aiCoach ? 'checked' : ''} /> <span>Send these aggregated stats to the coach endpoint (Claude) for a personalised plan</span></label
-        >
+        <label class="toggle"><input type="checkbox" id="ai-optin" ${s.aiCoach ? 'checked' : ''} /> <span>Send these aggregated stats to the AI coach for a personalised plan</span></label>
         <details>
           <summary class="hint-line">Exact payload</summary>
           <pre class="hint-line" id="payload">${JSON.stringify(payload, null, 2)}</pre>

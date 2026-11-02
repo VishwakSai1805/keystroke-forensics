@@ -3,7 +3,7 @@ import { lineChart } from '../../../client/charts.js';
 import { getMode } from '../../../core/modes/index.js';
 import { mean, round } from '../../../core/metrics.js';
 import { db, listRuns } from '../../../client/db.js';
-import { html, raw, fmt, download, toast } from '../dom.js';
+import { html, raw, fmt, download, toast, fitChart } from '../dom.js';
 
 const DAY = 86_400_000;
 
@@ -111,7 +111,7 @@ export async function mount(el) {
     <div class="cards">
       <div class="card wide">
         <h3>30-day trend (best net WPM per day)</h3>
-        ${raw(trendPts.length > 1 ? lineChart({ title: '30-day trend', series: [{ points: trendPts }], xFormat: (x) => `-${30 - Math.round(x / DAY)}d`, yLabel: 'wpm' }) : '<p class="empty">Practise on two different days to see a trend.</p>')}
+        ${raw(trendPts.length > 1 ? '<div class="chart-fit" data-chart="trend"></div>' : '<p class="empty">Practise on two different days to see a trend.</p>')}
       </div>
       <div class="card wide">
         <h3>Personal bests</h3>
@@ -191,6 +191,16 @@ export async function mount(el) {
         : '<p class="empty">Nothing recorded yet.</p>',
     )}`;
 
+  const stopTrend = fitChart(el.querySelector('[data-chart="trend"]'), (width) =>
+    lineChart({
+      width,
+      height: Math.max(170, Math.min(240, Math.round(width * 0.28))),
+      title: '30-day trend',
+      series: [{ points: trendPts }],
+      xFormat: (x) => `-${30 - Math.round(x / DAY)}d`,
+      yLabel: 'wpm',
+    }),
+  );
   const stripLogs = (r) => ({ ...r, entries: undefined });
   el.querySelector('#csv').onclick = () => download('keystroke-forensics-history.csv', toCsv(runs), 'text/csv');
   el.querySelector('#json').onclick = () => download('keystroke-forensics-history.json', JSON.stringify(runs.map(stripLogs), null, 2), 'application/json');
@@ -200,4 +210,5 @@ export async function mount(el) {
     toast('Local history deleted.');
     mount(el);
   };
+  return stopTrend;
 }

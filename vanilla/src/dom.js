@@ -97,3 +97,31 @@ export function rollNumber(el, to, decimals = 0) {
   };
   requestAnimationFrame(step);
 }
+
+/**
+ * Draw an SVG chart at the container's real pixel width (so chart text is a normal size
+ * instead of being scaled with the viewBox) and redraw when the width changes.
+ * @param {HTMLElement|null} el Container.
+ * @param {(width:number)=>string} build Returns chart markup for a width.
+ * @returns {()=>void} Stop watching.
+ */
+export function fitChart(el, build) {
+  if (!el) return () => {};
+  let last = 0;
+  const draw = () => {
+    const w = Math.round(el.clientWidth);
+    if (w > 0 && Math.abs(w - last) > 4) {
+      last = w;
+      el.innerHTML = build(w);
+    }
+  };
+  draw();
+  if (typeof ResizeObserver !== 'function') return () => {};
+  let frame = 0;
+  const ro = new ResizeObserver(() => {
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(draw);
+  });
+  ro.observe(el);
+  return () => ro.disconnect();
+}

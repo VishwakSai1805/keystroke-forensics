@@ -62,6 +62,8 @@ export function createController({ api, analytics, store, onComplete }) {
     live: $('#results-live'),
     kbWrap: $('#kb-wrap'),
     phish: $('#phishing-panel'),
+    rail: $('.rail'),
+    grid: $('.test-grid'),
   };
   const view = createTypingView({ textEl: els.text, viewport: els.viewport });
   let keyboard = null;
@@ -79,7 +81,7 @@ export function createController({ api, analytics, store, onComplete }) {
   let bioProfile = null;
   let phish = null;
   let blockUntil = 0;
-  let starting = false;
+  let startGen = 0;
 
   const settings = () => store.get();
 
@@ -93,7 +95,16 @@ export function createController({ api, analytics, store, onComplete }) {
     keyboard = mountKeyboard(els.kbWrap, s.layout);
   }
   setupKeyboard();
+
+  /** The live-stats rail is off by default (calmer screen); races always need it. */
+  function setRail(r) {
+    const show = Boolean(settings().showTelemetry || r);
+    els.rail.hidden = !show;
+    els.grid.classList.toggle('no-rail', !show);
+  }
+  setRail(null);
   store.subscribe((s, patch) => {
+    if ('showTelemetry' in patch) setRail(race);
     if ('showKeyboard' in patch || 'layout' in patch) setupKeyboard();
     if ('size' in patch || 'font' in patch) requestAnimationFrame(() => view.relayout(engine.getSnapshot()));
   });
@@ -297,78 +308,93 @@ export function createController({ api, analytics, store, onComplete }) {
    * @param {{race?:Object|null, seed?:number, text?:string, modeId?:string, options?:Object}} [o]
    */
   async function start(o = {}) {
-    if (starting) return;
-    starting = true;
-    try {
-      cancelAnimationFrame(raf);
-      raf = 0;
-      phish = null;
-      els.phish.hidden = true;
-      race = o.race || null;
-      view.ghost(null);
-      els.ghostBlock.hidden = true;
-      els.duelBlock.hidden = !(race && race.kind === 'duel');
+    // Last request wins: a quick second click must not be ignored (it used to be), and a
+    // slower, older request must not overwrite a newer one when its network call returns.
+    const gen = ++startGen;
+    const stale = () => gen !== startGen;
+    cancelAnimationFrame(raf);
+    raf = 0;
+    phish = null;
+    els.phish.hidden = true;
+    view.ghost(null);
+    blockUntil = o.race && o.race.blockUntil ? o.race.blockUntil : 0;
+    const s = settings();
+    const modeId = o.modeId || s.modeId;
+    if (modeId === 'phishing') {
+      race = null;
       token = null;
-      blockUntil = race && race.blockUntil ? race.blockUntil : 0;
-      const s = settings();
-      const modeId = o.modeId || s.modeId;
-      if (modeId === 'phishing') {
-        await startPhishing();
-        return;
-      }
-      const mode = getMode(modeId);
-      let options = { ...modeOptions(modeId), ...(o.options || {}) };
-      let loadOpts = { seed: o.seed, text: o.text };
-      const ctx = {};
-      if (modeId === 'weakkey') ctx.weakness = weaknessFromHistory((await listRuns()).map((r) => r.analysis).filter(Boolean));
-
-      if (!race && s.ghost && GHOSTABLE.has(modeId) && o.seed === undefined) {
-        const pb = await personalBest(boardKey(modeId, options));
-        if (pb) {
-          options = pb.options;
-          loadOpts = { seed: pb.seed, text: pb.customText };
-          const timeline = caretTimeline({ modeId, options: pb.options, policy: pb.policy, seed: pb.seed, text: pb.customText, entries: pb.entries });
-          race = {
-            kind: 'ghost',
-            caretAt: (rel) => ghostCaretAt(timeline, rel),
-            render(snap) {
-              if (snap.startT === null) return;
-              const rel = performance.now() - snap.startT;
-              const d = snap.caret - ghostCaretAt(timeline, rel);
-              els.ghostDelta.textContent = `${d >= 0 ? '+' : ''}${d} chars`;
-            },
-          };
-          els.ghostBlock.hidden = false;
-          els.ghostPb.textContent = `${fmt.n(pb.result.netWpm)} wpm`;
-          els.ghostDelta.textContent = '0 chars';
-        }
-      }
-
-      if (!race && loadOpts.seed === undefined && mode.scoreRules.ranked && s.ranked && api.online) {
-        try {
-          const t = await api.runToken(modeId, options, s.policy);
-          token = t;
-          options = t.options;
-          loadOpts = { seed: t.seed };
-          textSource.markUsed(modeId, t.text);
-        } catch {
-          token = null;
-        }
-      }
-      if (loadOpts.seed === undefined && !loadOpts.text) {
-        const next = textSource.next(modeId, options, ctx);
-        loadOpts = { seed: next.seed };
-      }
-      engine.configure({ modeId, options, policy: race && race.kind === 'duel' ? 'free' : s.policy });
-      engine.load({ ...loadOpts, ctx });
-      if (token && engine.getSnapshot().text !== token.text) token = null; // defensive: never submit a mismatched run
-      await loadBioProfile();
-      describe(engine.getSnapshot(), race && race.kind === 'ghost' ? ' · racing your ghost' : '');
-      resetHud();
-      focus();
-    } finally {
-      starting = false;
+      setRail(null);
+      await startPhishing();
+      return;
     }
+    const mode = getMode(modeId);
+    let nextRace = o.race || null;
+    let nextToken = null;
+    let ghostPb = null;
+    let options = { ...modeOptions(modeId), ...(o.options || {}) };
+    let loadOpts = { seed: o.seed, text: o.text };
+    const ctx = {};
+    if (modeId === 'weakkey') {
+      ctx.weakness = weaknessFromHistory((await listRuns()).map((r) => r.analysis).filter(Boolean));
+      if (stale()) return;
+    }
+
+    if (!nextRace && s.ghost && GHOSTABLE.has(modeId) && o.seed === undefined) {
+      const pb = await personalBest(boardKey(modeId, options));
+      if (stale()) return;
+      if (pb) {
+        ghostPb = pb;
+        options = pb.options;
+        loadOpts = { seed: pb.seed, text: pb.customText };
+        const timeline = caretTimeline({ modeId, options: pb.options, policy: pb.policy, seed: pb.seed, text: pb.customText, entries: pb.entries });
+        nextRace = {
+          kind: 'ghost',
+          caretAt: (rel) => ghostCaretAt(timeline, rel),
+          render(snap) {
+            if (snap.startT === null) return;
+            const rel = performance.now() - snap.startT;
+            const d = snap.caret - ghostCaretAt(timeline, rel);
+            els.ghostDelta.textContent = `${d >= 0 ? '+' : ''}${d} chars`;
+          },
+        };
+      }
+    }
+
+    if (!nextRace && loadOpts.seed === undefined && mode.scoreRules.ranked && s.ranked && api.online) {
+      try {
+        const t = await api.runToken(modeId, options, s.policy);
+        if (stale()) return;
+        nextToken = t;
+        options = t.options;
+        loadOpts = { seed: t.seed };
+        textSource.markUsed(modeId, t.text);
+      } catch {
+        if (stale()) return;
+        nextToken = null;
+      }
+    }
+    if (loadOpts.seed === undefined && !loadOpts.text) {
+      const next = textSource.next(modeId, options, ctx);
+      loadOpts = { seed: next.seed };
+    }
+    // Commit: nothing above this line touched shared state after an await.
+    race = nextRace;
+    token = nextToken;
+    els.ghostBlock.hidden = !ghostPb;
+    if (ghostPb) {
+      els.ghostPb.textContent = `${fmt.n(ghostPb.result.netWpm)} wpm`;
+      els.ghostDelta.textContent = '0 chars';
+    }
+    els.duelBlock.hidden = !(race && race.kind === 'duel');
+    setRail(race);
+    engine.configure({ modeId, options, policy: race && race.kind === 'duel' ? 'free' : s.policy });
+    engine.load({ ...loadOpts, ctx });
+    if (token && engine.getSnapshot().text !== token.text) token = null; // defensive: never submit a mismatched run
+    await loadBioProfile();
+    if (stale()) return;
+    describe(engine.getSnapshot(), race && race.kind === 'ghost' ? ' · racing your ghost' : '');
+    resetHud();
+    focus();
   }
 
   function restart() {

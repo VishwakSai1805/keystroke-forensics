@@ -68,9 +68,13 @@ async function route() {
   for (const v of $$('.view')) v.classList.toggle('active', v.dataset.view === viewName);
   for (const a of $$('.nav a')) {
     const target = a.getAttribute('href').replace(/^#\/?/, '') || 'test';
-    if (target === viewName || (viewName === 'replay' && target === 'history')) a.setAttribute('aria-current', 'page');
+    if (target === viewName || ((viewName === 'replay' || viewName === 'report') && target === 'history')) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
   }
+  // "More" menu: close after navigating, and highlight it when one of its pages is open.
+  const more = $('#nav-more');
+  more.open = false;
+  more.classList.toggle('has-current', Boolean(more.querySelector('[aria-current]')));
   if (currentCleanup) {
     try {
       currentCleanup();
@@ -109,6 +113,10 @@ document.addEventListener('keydown', (e) => {
 });
 
 window.addEventListener('hashchange', route);
+// Close open menus (nav "More", mode options) when clicking elsewhere.
+document.addEventListener('click', (e) => {
+  for (const d of $$('details.more[open], details.run-opts[open]')) if (!d.contains(e.target)) d.open = false;
+});
 
 async function boot() {
   const mode = await api.init();

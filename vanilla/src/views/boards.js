@@ -6,7 +6,7 @@ import { CODE_LANGUAGES } from '../../../core/corpus/code.js';
 import { COMMANDS } from '../../../core/corpus/security.js';
 import { utcDay } from '../../../core/prng.js';
 import { lineChart } from '../../../client/charts.js';
-import { html, raw, fmt, toast } from '../dom.js';
+import { html, raw, fmt, toast, fitChart } from '../dom.js';
 
 /** Every ranked board key, grouped. Modes are never mixed. */
 export function rankedBoards() {
@@ -137,7 +137,7 @@ export async function mount(el, app) {
     try {
       const p = await api.personal();
       const trend = (p.trend || []).map((t, i) => ({ x: i, y: Number(t.net_wpm) }));
-      box.innerHTML = html`${raw(trend.length > 1 ? lineChart({ title: '30-day trend', series: [{ points: trend }], xFormat: (x) => (p.trend[Math.round(x)] ? p.trend[Math.round(x)].day.slice(5) : ''), yLabel: 'wpm' }) : '')}${raw(
+      box.innerHTML = html`${raw(trend.length > 1 ? '<div class="chart-fit" data-chart="personal"></div>' : '')}${raw(
         p.bests && p.bests.length
           ? html`<div class="table-wrap">
               <table class="data">
@@ -168,6 +168,9 @@ export async function mount(el, app) {
             </div>`
           : '<p class="empty">Submit a ranked run to start your personal board.</p>',
       )}`;
+      fitChart(box.querySelector('[data-chart="personal"]'), (width) =>
+        lineChart({ width, height: 200, title: '30-day trend', series: [{ points: trend }], xFormat: (x) => (p.trend[Math.round(x)] ? p.trend[Math.round(x)].day.slice(5) : ''), yLabel: 'wpm' }),
+      );
     } catch (e) {
       box.innerHTML = html`<p class="empty">${e.message}</p>`;
     }
